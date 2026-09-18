@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevFlow AI — CI/CD Failure Analyzer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+header { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; }
+.logo { font-size: 1.4rem; font-weight: bold; color: #38bdf8; }
+.logo span { color: #e2e8f0; }
+.badge { background: #0f172a; color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; }
+.hero { text-align: center; padding: 60px 40px 40px; }
+.hero h1 { font-size: 2.5rem; font-weight: bold; margin-bottom: 16px; }
+.hero h1 span { color: #38bdf8; }
+.hero p { color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px; }
+.analyzer { max-width: 900px; margin: 0 auto; padding: 0 40px 60px; }
+.input-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+.input-card label { display: block; color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+input[type="text"] { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 0.95rem; margin-bottom: 16px; }
+textarea { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; color: #e2e8f0; font-size: 0.85rem; font-family: monospace; resize: vertical; min-height: 160px; }
+.btn { background: #38bdf8; color: #0f172a; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 16px; transition: background 0.2s; }
+.btn:hover { background: #0ea5e9; }
+.btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+.result-card { background: #1e293b; border-radius: 16px; padding: 24px; margin-top: 24px; display: none; }
+.severity { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-bottom: 16px; }
+.severity.Critical { background: #450a0a; color: #fca5a5; }
+.severity.High { background: #431407; color: #fdba74; }
+.severity.Medium { background: #422006; color: #fcd34d; }
+.severity.Low { background: #052e16; color: #86efac; }
+.section { margin-bottom: 20px; }
+.section h3 { color: #38bdf8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.root-cause { background: #0f172a; border-left: 3px solid #ef4444; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #fca5a5; }
+.fix-list { list-style: none; }
+.fix-list li { background: #0f172a; border-left: 3px solid #22c55e; padding: 10px 16px; border-radius: 0 8px 8px 0; margin-bottom: 8px; color: #86efac; display: flex; gap: 10px; }
+.fix-list li::before { content: attr(data-step); background: #22c55e; color: #0f172a; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0; }
+.prevention { background: #0f172a; border-left: 3px solid #38bdf8; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #7dd3fc; }
+.meta { display: flex; gap: 16px; margin-top: 16px; }
+.meta-item { background: #0f172a; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; color: #94a3b8; }
+.meta-item span { color: #e2e8f0; font-weight: bold; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; margin: 0 auto 40px; padding: 0 40px; }
+.stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; }
+.stat-card .number { font-size: 2rem; font-weight: bold; color: #38bdf8; }
+.stat-card .label { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+.loading { text-align: center; padding: 20px; color: #38bdf8; display: none; }
+.examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.example-btn { background: #0f172a; border: 1px solid #334155; color: #94a3b8; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+.example-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DevFlow <span>AI</span></div>
+  <div class="badge">Beta</div>
+</header>
+
+<div class="hero">
+  <h1>Fix CI/CD failures <span>10x faster</span></h1>
+  <p>Paste your pipeline log. Get the root cause and exact fix in seconds.</p>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="number" id="total-analyses">0</div>
+    <div class="label">Pipelines analyzed</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" id="time-saved">0</div>
+    <div class="label">Minutes saved</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" id="critical-count">0</div>
+    <div class="label">Critical issues found</div>
+  </div>
+</div>
+
+<div class="analyzer">
+  <div class="input-card">
+    <label>Pipeline Name</label>
+    <input type="text" id="pipeline-name" placeholder="e.g. Deploy to Production" value="My Pipeline">
+
+    <label>Paste your failure log</label>
+    <textarea id="log-input" placeholder="Paste your CI/CD pipeline failure log here..."></textarea>
+
+    <div class="examples">
+      <button class="example-btn" onclick="loadExample('permission')">Permission denied</button>
+      <button class="example-btn" onclick="loadExample('timeout')">Connection timeout</button>
+      <button class="example-btn" onclick="loadExample('image')">Image not found</button>
+      <button class="example-btn" onclick="loadExample('test')">Test failure</button>
+      <button class="example-btn" onclick="loadExample('oom')">Out of memory</button>
+      <button class="example-btn" onclick="loadExample('disk')">Disk full</button>
+    </div>
+
+    <button class="btn" id="analyze-btn" onclick="analyze()">⚡ Analyze Failure</button>
+  </div>
+
+  <div class="loading" id="loading">🤖 Analyzing your pipeline failure...</div>
+
+  <div class="result-card" id="result-card">
+    <div id="severity-badge" class="severity"></div>
+
+    <div class="section">
+      <h3>🔴 Root Cause</h3>
+      <div class="root-cause" id="root-cause"></div>
+    </div>
+
+    <div class="section">
+      <h3>✅ How to Fix It</h3>
+      <ul class="fix-list" id="fix-list"></ul>
+    </div>
+
+    <div class="section">
+      <h3>🛡️ Prevention</h3>
+      <div class="prevention" id="prevention"></div>
+    </div>
+
+    <div class="meta">
+      <div class="meta-item">Fix time: <span id="fix-time"></span></div>
+      <div class="meta-item">Analyzed: <span id="timestamp"></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const examples = {
+  permission: "Error: permission denied when pushing to ECR registry\naccessDeniedException: User is not authorized to perform: ecr:InitiateLayerUpload",
+  timeout: "Error: connection timeout connecting to database port 5432\nERROR: could not connect to server: Connection refused\nIs the server running on host 'db.internal' and accepting TCP/IP connections on port 5432?",
+  image: "Error: docker image not found prasad/flask-app:latest\npull access denied for prasad/flask-app, repository does not exist or may require 'docker login'",
+  test: "FAILED test_user_login: assertion error expected 200 got 401\nFAILED test_create_order: connection refused\n2 failed, 18 passed in 4.32s",
+  oom: "Error: out of memory - killed process 1234\nfatal error: runtime: out of memory\ngoroutine 1 [running]: runtime.throw",
+  disk: "Error: no space left on device\nfatal: cannot create directory '/workspace': No space left on device\ndf -h shows /dev/sda1 at 100% usage"
+};
+
+function loadExample(type) {
+  document.getElementById('log-input').value = examples[type];
+  document.getElementById('pipeline-name').value = type.charAt(0).toUpperCase() + type.slice(1) + ' Pipeline';
+}
+
+async function analyze() {
+  const log = document.getElementById('log-input').value.trim();
+  const name = document.getElementById('pipeline-name').value.trim();
+  
+  if (!log) { alert('Please paste a pipeline log first!'); return; }
+  
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('analyze-btn').textContent = 'Analyzing...';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('result-card').style.display = 'none';
+
+  try {
+    const response = await fetch('http://localhost:8000/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ log, pipeline_name: name })
+    });
+
+    const data = await response.json();
+    const result = data.analysis.result;
+
+    document.getElementById('severity-badge').textContent = result.severity;
+    document.getElementById('severity-badge').className = 'severity ' + result.severity;
+    document.getElementById('root-cause').textContent = result.root_cause;
+    document.getElementById('prevention').textContent = result.prevention;
+    document.getElementById('fix-time').textContent = result.estimated_fix_time;
+    document.getElementById('timestamp').textContent = new Date().toLocaleTimeString();
+
+    const fixList = document.getElementById('fix-list');
+    fixList.innerHTML = '';
+    result.fix.forEach((step, i) => {
+      const li = document.createElement('li');
+      li.setAttribute('data-step', i + 1);
+      li.textContent = step;
+      fixList.appendChild(li);
+    });
+
+    document.getElementById('result-card').style.display = 'block';
+    updateStats();
+
+  } catch(e) {
+    alert('Error connecting to API. Make sure the backend is running on port 8000!');
+  } finally {
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('analyze-btn').textContent = '⚡ Analyze Failure';
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+async function updateStats() {
+  try {
+    const r = await fetch('http://localhost:8000/stats');
+    const data = await r.json();
+    document.getElementById('total-analyses').textContent = data.total_analyses;
+    document.getElementById('time-saved').textContent = data.time_saved_minutes;
+    document.getElementById('critical-count').textContent = data.severity_breakdown.Critical || 0;
+  } catch(e) {}
+}
+
+updateStats();
+</script>
+</body>
+</html>
