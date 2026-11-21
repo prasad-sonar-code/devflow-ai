@@ -150,7 +150,7 @@ async function analyze() {
   document.getElementById('result-card').style.display = 'none';
 
   try {
-    const response = await fetch('http://localhost:8000/analyze', {
+    const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ log, pipeline_name: name })
@@ -189,7 +189,7 @@ async function analyze() {
 
 async function updateStats() {
   try {
-    const r = await fetch('http://localhost:8000/stats');
+    const r = await fetch('/stats');
     const data = await r.json();
     document.getElementById('total-analyses').textContent = data.total_analyses;
     document.getElementById('time-saved').textContent = data.time_saved_minutes;

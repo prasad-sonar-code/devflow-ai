@@ -1,14 +1,12 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from analyzer import analyze_pipeline_failure
 import datetime
+import os
 
-app = FastAPI(
-    title="DevFlow AI",
-    description="AI-powered CI/CD failure analyzer",
-    version="1.0.0"
-)
+app = FastAPI(title="DevFlow AI", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store analyses in memory
+FRONTEND = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
 analyses = []
 
 class PipelineLog(BaseModel):
@@ -26,11 +24,7 @@ class PipelineLog(BaseModel):
 
 @app.get("/")
 def home():
-    return {
-        "product": "DevFlow AI",
-        "tagline": "Paste your failed pipeline log. Get the fix in seconds.",
-        "version": "1.0.0"
-    }
+    return FileResponse(FRONTEND)
 
 @app.get("/health")
 def health():
@@ -40,28 +34,20 @@ def health():
 async def analyze(payload: PipelineLog):
     try:
         result = analyze_pipeline_failure(payload.log)
-        
         analysis = {
             "id": len(analyses) + 1,
             "pipeline_name": payload.pipeline_name,
             "timestamp": str(datetime.datetime.now()),
-            "result": result
+            "result": result,
         }
         analyses.append(analysis)
-        
-        return {
-            "success": True,
-            "analysis": analysis
-        }
+        return {"success": True, "analysis": analysis}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/analyses")
 def get_analyses():
-    return {
-        "total": len(analyses),
-        "analyses": analyses
-    }
+    return {"total": len(analyses), "analyses": analyses}
 
 @app.get("/stats")
 def stats():
@@ -69,13 +55,8 @@ def stats():
     for a in analyses:
         s = a["result"].get("severity", "Unknown")
         severities[s] = severities.get(s, 0) + 1
-    
     return {
         "total_analyses": len(analyses),
         "severity_breakdown": severities,
-        "time_saved_minutes": len(analyses) * 45
+        "time_saved_minutes": len(analyses) * 45,
     }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
